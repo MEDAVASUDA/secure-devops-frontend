@@ -1,95 +1,53 @@
-name: Frontend CI/CD Pipeline
+name: Frontend CI/CD
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run tests with coverage
-        run: npm test -- --coverage --watchAll=false
-  
-  sonarqube:
-    name: SonarQube Scan
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Run tests with coverage
-        run: npm test -- --coverage --watchAll=false
-      
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-  
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16.x'
+
+    - name: Install dependencies
+      run: |
+        npm install
+
+    - name: Run tests
+      run: |
+        npm test
+
+    - name: SonarQube Analysis
+      uses: SonarSource/sonarcloud-github-action@v1
+      with:
+        sonarcloud_token: ${{ secrets.SONAR_TOKEN }}
+      env:
+        SONAR_SCANNER_OPTS: "-Xmx2G"
+      run: |
+        sonar-scanner
+
   snyk:
-    name: Snyk Security Scan
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-      
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/node@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-  
-  container_scan:
-    name: Trivy Container Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Build image
-        run: docker build -t secure-devops-frontend:${{ github.sha }} .
-      
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'secure-devops-frontend:${{ github.sha }}'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install SNYK
+      run: npm install -g snyk
+
+    - name: Test for vulnerabilities using SNYK
+      run: snyk test --all-projects
++
