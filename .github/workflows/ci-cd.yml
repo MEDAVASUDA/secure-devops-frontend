@@ -2,73 +2,70 @@ name: Frontend CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Run Tests with Coverage
+    runs-on: Ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          cache: 'npm'
-      
+          node-version: '18'
+
       - name: Install dependencies
-        run: npm ci
-      
+        run: npm install
+
       - name: Run tests with coverage
         run: npm test -- --coverage --watchAll=false
-  
+
   sonarqube:
     name: SonarQube Scan
-    runs-on: ubuntu-latest
+    runs-on: Ubuntu-22.04
     needs: test
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          cache: 'npm'
-      
+          node-version: '18'
+
       - name: Install dependencies
-        run: npm ci
-      
+        run: npm install
+
       - name: Run tests with coverage
         run: npm test -- --coverage --watchAll=false
-      
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_HOST_URL: "https://sonarqube.cloud"
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-  
+          SONAR_ORGANIZATION: "your-organization-key"
+          SONAR_PROJECT_KEY: "your-project-key"
+
   snyk:
     name: Snyk Security Scan
-    runs-on: ubuntu-latest
+    runs-on: Ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
-      
+          node-version: '18'
+
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
         continue-on-error: true
@@ -76,16 +73,17 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test
-  
+
   container_scan:
     name: Trivy Container Scan
-    runs-on: ubuntu-latest
+    runs-on: Ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Build image
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
         run: docker build -t secure-devops-frontend:${{ github.sha }} .
-      
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -93,3 +91,29 @@ jobs:
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
+
+  deploy:
+    name: Deploy Frontend to GitHub Pages
+    needs: test
+    runs-on: Ubuntu-22.04
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.4
+        with:
+          branch: gh-pages
+          folder: build
