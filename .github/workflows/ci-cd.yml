@@ -22,12 +22,10 @@ jobs:
         node-version: '16.x'
 
     - name: Install dependencies
-      run: |
-        npm install
+      run: npm install
 
     - name: Run tests
-      run: |
-        npm test
+      run: npm test
 
     - name: SonarQube Analysis
       uses: SonarSource/sonarcloud-github-action@v1
@@ -35,9 +33,7 @@ jobs:
         sonarcloud_token: ${{ secrets.SONAR_TOKEN }}
       env:
         SONAR_SCANNER_OPTS: "-Xmx2G"
-      run: |
-        sonar-scanner
-
+        
   snyk:
     runs-on: ubuntu-latest
 
