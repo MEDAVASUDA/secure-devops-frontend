@@ -50,4 +50,3 @@ jobs:
 
     - name: Test for vulnerabilities using SNYK
       run: snyk test --all-projects
-+
